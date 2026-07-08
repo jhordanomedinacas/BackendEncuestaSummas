@@ -17,6 +17,7 @@ router.get("/encuestadores", requireRole(["Administrador", "Supervisor"]), requi
 router.get("/pendientes", requireRole(["Administrador", "Supervisor"]), requireVista("encuestados"), asignaciones.pendientesGlobal);
 router.delete("/:id", requireRole(["Administrador", "Supervisor"]), asignaciones.eliminar);
 router.get("/mis-encuestas", asignaciones.misEncuestas); // Encuestador: sus propias encuestas
+router.get("/mis-estadisticas", asignaciones.misEstadisticas); // Encuestador: "Encuestas trabajadas"
 router.put("/:id/iniciar", asignaciones.iniciar);        // Encuestador: al abrir el formulario
 router.put("/:id/finalizar", requireRole(["Administrador", "Supervisor"]), asignaciones.finalizar); // solo Admin/Supervisor cierran una campaña
 

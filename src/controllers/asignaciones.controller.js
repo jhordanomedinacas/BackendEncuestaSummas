@@ -263,9 +263,63 @@ async function obtenerPorEncuesta(req, res, next) {
   }
 }
 
+/* GET /api/asignaciones/mis-estadisticas
+   Para la sección "Encuestas trabajadas" del propio Encuestador:
+   cuántas entrevistas hizo este mes, el desglose de los últimos 3
+   meses, y qué % de lo que tiene asignado ya está en marcha. */
+async function misEstadisticas(req, res, next) {
+  try {
+    const pool = await getPool();
+    const asesorId = req.user.usuarioId;
+
+    const [mesActual, ultimosTresMeses, avance] = await Promise.all([
+      pool
+        .request()
+        .input("AsesorId", sql.Int, asesorId)
+        .query(`
+          SELECT COUNT(*) AS Total FROM RespuestasEncuesta
+          WHERE AsesorId = @AsesorId AND FechaHoraFin >= DATEADD(MONTH, -1, SYSUTCDATETIME())
+        `),
+      pool
+        .request()
+        .input("AsesorId", sql.Int, asesorId)
+        .query(`
+          SELECT FORMAT(FechaHoraFin, 'yyyy-MM') AS Mes, COUNT(*) AS Total
+          FROM RespuestasEncuesta
+          WHERE AsesorId = @AsesorId AND FechaHoraFin >= DATEADD(MONTH, -3, SYSUTCDATETIME())
+          GROUP BY FORMAT(FechaHoraFin, 'yyyy-MM')
+          ORDER BY Mes
+        `),
+      pool
+        .request()
+        .input("AsesorId", sql.Int, asesorId)
+        .query(`
+          SELECT
+            COUNT(*) AS TotalAsignadas,
+            SUM(CASE WHEN EXISTS (SELECT 1 FROM RespuestasEncuesta r WHERE r.AsignacionId = a.AsignacionId) THEN 1 ELSE 0 END) AS ConRespuesta
+          FROM Asignaciones a
+          WHERE a.AsesorId = @AsesorId
+        `),
+    ]);
+
+    const totalAsignadas = avance.recordset[0].TotalAsignadas || 0;
+    const conRespuesta = avance.recordset[0].ConRespuesta || 0;
+
+    res.json({
+      totalMesActual: mesActual.recordset[0].Total,
+      ultimosTresMeses: ultimosTresMeses.recordset,
+      totalAsignadas,
+      porcentajeAvance: totalAsignadas > 0 ? Math.round((conRespuesta / totalAsignadas) * 100) : 0,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   asignarMasivo,
   misEncuestas,
+  misEstadisticas,
   iniciar,
   obtenerPorUsuario,
   obtenerPorEncuesta,
