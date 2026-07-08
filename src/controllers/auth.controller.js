@@ -83,7 +83,12 @@ async function login(req, res, next) {
          VALUES (@UsuarioId, @CodigoHash, @FechaExpira)`
       );
 
-    await enviarCodigoOTP(usuario.Correo, codigo, "Email");
+    // Responde de inmediato — el código ya quedó guardado y es válido.
+    // El correo se manda en paralelo, sin que el usuario tenga que
+    // esperar a que termine el handshake SMTP (antes tardaba ~17s).
+    enviarCodigoOTP(usuario.Correo, codigo, "Email").catch((err) =>
+      console.error("[2FA] No se pudo enviar el correo:", err.message)
+    );
 
     return res.json({ requiere2FA: true, usuarioId: usuario.UsuarioId });
   } catch (err) {
@@ -197,7 +202,9 @@ async function solicitarRecuperacion(req, res, next) {
           VALUES (@UsuarioId, @TokenHash, @FechaExpira)
         `);
 
-      await enviarCorreoRecuperacion(usuario.Correo, usuario.NombreCompleto, codigo);
+      enviarCorreoRecuperacion(usuario.Correo, usuario.NombreCompleto, codigo).catch((err) =>
+        console.error("[recuperación] No se pudo enviar el correo:", err.message)
+      );
     }
 
     return res.json({

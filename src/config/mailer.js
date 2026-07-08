@@ -1,6 +1,10 @@
 const nodemailer = require("nodemailer");
+const fs = require("fs");
+const path = require("path");
 
 let transporterInstance = null;
+
+const LOGO_PATH = path.join(__dirname, "..", "..", "assets", "logo-email.png");
 
 function smtpConfigurado() {
   return !!(process.env.SMTP_USER && process.env.SMTP_PASS);
@@ -13,6 +17,8 @@ function getTransporter() {
       host: process.env.SMTP_HOST || "smtp.gmail.com",
       port,
       secure: port === 465, // 465 = TLS directo (Gmail); 587 = STARTTLS (Office365/Outlook)
+      pool: true, // reutiliza la conexión SMTP entre envíos, en vez de reconectar cada vez
+      maxConnections: 3,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
@@ -20,6 +26,23 @@ function getTransporter() {
     });
   }
   return transporterInstance;
+}
+
+/** Adjunto embebido (CID) del logo, solo si el archivo existe — si no
+ *  está, el correo se manda igual, simplemente sin el logo. */
+function adjuntoLogo() {
+  if (!fs.existsSync(LOGO_PATH)) return [];
+  return [{ filename: "logo.png", path: LOGO_PATH, cid: "logo-summas-ges" }];
+}
+
+function encabezadoHtml() {
+  return `
+    <div style="text-align:center;padding-bottom:16px;margin-bottom:16px;border-bottom:1px solid #e6eaf0;">
+      ${fs.existsSync(LOGO_PATH) ? `<img src="cid:logo-summas-ges" alt="Summas" style="height:40px;margin-bottom:10px;">` : ""}
+      <div style="font-size:11px;letter-spacing:1.5px;color:#5f6368;font-weight:700;text-transform:uppercase;">Gestión de Encuestas</div>
+      <div style="font-size:16px;color:#0d2c4f;font-weight:800;">SUMMAS (GES)</div>
+    </div>
+  `;
 }
 
 /**
@@ -31,13 +54,15 @@ async function enviarCorreoOTP(destino, codigo) {
   const transporter = getTransporter();
 
   await transporter.sendMail({
-    from: `"Panel de Encuestas" <${process.env.SMTP_USER}>`,
+    from: `"Summas GES" <${process.env.SMTP_USER}>`,
     to: destino,
     subject: `Tu código de verificación: ${codigo}`,
     text: `Tu código de verificación es: ${codigo}\nExpira en ${process.env.OTP_EXP_MINUTES || 5} minutos.`,
+    attachments: adjuntoLogo(),
     html: `
       <div style="font-family:Arial,sans-serif;max-width:420px;margin:0 auto;padding:24px;border:1px solid #e6eaf0;border-radius:12px;">
-        <h2 style="color:#0d2c4f;margin-bottom:4px;">Verificación de dos pasos</h2>
+        ${encabezadoHtml()}
+        <h2 style="color:#0d2c4f;margin-bottom:4px;font-size:18px;">Verificación de dos pasos</h2>
         <p style="color:#5f6368;font-size:14px;">Usa este código para completar tu inicio de sesión:</p>
         <div style="font-size:32px;font-weight:800;letter-spacing:8px;color:#0078c9;text-align:center;padding:16px 0;">
           ${codigo}
@@ -60,13 +85,15 @@ async function enviarCorreoRecuperacion(destino, nombre, codigo) {
   const minutos = process.env.RECOVERY_TOKEN_EXP_MINUTES || 30;
 
   await transporter.sendMail({
-    from: `"Panel de Encuestas" <${process.env.SMTP_USER}>`,
+    from: `"Summas GES" <${process.env.SMTP_USER}>`,
     to: destino,
     subject: `Tu código para restablecer tu contraseña: ${codigo}`,
     text: `Hola ${nombre}, tu código para restablecer tu contraseña es: ${codigo}\nExpira en ${minutos} minutos. Si no lo solicitaste, ignora este correo.`,
+    attachments: adjuntoLogo(),
     html: `
       <div style="font-family:Arial,sans-serif;max-width:420px;margin:0 auto;padding:24px;border:1px solid #e6eaf0;border-radius:12px;">
-        <h2 style="color:#0d2c4f;margin-bottom:4px;">Restablecer contraseña</h2>
+        ${encabezadoHtml()}
+        <h2 style="color:#0d2c4f;margin-bottom:4px;font-size:18px;">Restablecer contraseña</h2>
         <p style="color:#5f6368;font-size:14px;">Hola ${nombre}, usa este código para continuar:</p>
         <div style="font-size:32px;font-weight:800;letter-spacing:8px;color:#0078c9;text-align:center;padding:16px 0;">
           ${codigo}

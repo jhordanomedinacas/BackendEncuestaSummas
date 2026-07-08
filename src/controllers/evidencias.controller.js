@@ -176,6 +176,15 @@ async function actualizarEstadoAuditoria(req, res, next) {
   }
 }
 
+/* Excel no entiende zonas horarias: solo muestra los números de fecha/hora
+   tal cual se le entregan. Nuestra base guarda todo en UTC (correcto), así
+   que hay que restar 5 horas (Perú = UTC-5, sin horario de verano) antes
+   de escribir la celda, o el Excel muestra la hora adelantada. */
+function aFechaPeru(fechaUTC) {
+  const fecha = new Date(fechaUTC);
+  return new Date(fecha.getTime() - 5 * 60 * 60 * 1000);
+}
+
 /* GET /api/evidencias/exportar?encuestaId=...
    Descarga en Excel (.xlsx) toda la información de Encuestados,
    ordenada, con una fila por entrevista — pensado para que el
@@ -235,6 +244,7 @@ async function exportarExcel(req, res, next) {
     const sheet = workbook.addWorksheet("Encuestados", { views: [{ state: "frozen", ySplit: 1 }] });
 
     sheet.columns = [
+      { header: "ID Entrevista", key: "idRespuesta", width: 14 },
       { header: "ID Encuesta", key: "idEncuesta", width: 14 },
       { header: "Encuesta", key: "tituloEncuesta", width: 28 },
       { header: "Encuestado", key: "encuestado", width: 22 },
@@ -258,13 +268,14 @@ async function exportarExcel(req, res, next) {
 
     respuestas.forEach((r) => {
       sheet.addRow({
+        idRespuesta: r.RespuestaEncuestaId,
         idEncuesta: r.EncuestaId,
         tituloEncuesta: r.TituloEncuesta,
         encuestado: r.NombreEncuestado || "—",
         dni: r.DNIEncuestado || "—",
         asesor: r.CorreoAsesor,
-        fechaInicio: r.FechaHoraInicio ? new Date(r.FechaHoraInicio) : null,
-        fechaFin: r.FechaHoraFin ? new Date(r.FechaHoraFin) : null,
+        fechaInicio: r.FechaHoraInicio ? aFechaPeru(r.FechaHoraInicio) : null,
+        fechaFin: r.FechaHoraFin ? aFechaPeru(r.FechaHoraFin) : null,
         departamento: r.Departamento || "—",
         provincia: r.Provincia || "—",
         distrito: r.Distrito || "—",
@@ -278,7 +289,7 @@ async function exportarExcel(req, res, next) {
 
     sheet.getColumn("fechaInicio").numFmt = "dd/mm/yyyy hh:mm";
     sheet.getColumn("fechaFin").numFmt = "dd/mm/yyyy hh:mm";
-    sheet.autoFilter = { from: "A1", to: "O1" };
+    sheet.autoFilter = { from: "A1", to: "P1" };
 
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="encuestados_${Date.now()}.xlsx"`);
