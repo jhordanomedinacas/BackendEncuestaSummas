@@ -38,10 +38,10 @@ function getContainerClient() {
  * @param {string} contentType
  * @returns {Promise<{blobPath: string, url: string}>}
  */
-async function subirEvidencia(respuestaEncuestaId, buffer, nombreOriginal, contentType) {
+async function subirEvidencia(respuestaEncuestaId, buffer, nombreOriginal, contentType, req) {
   if (!azureConfigurado()) {
     console.log(`[evidencias] Azure no configurado — guardando "${nombreOriginal}" en disco local.`);
-    return subirEvidenciaLocal(respuestaEncuestaId, buffer, nombreOriginal, contentType);
+    return subirEvidenciaLocal(respuestaEncuestaId, buffer, nombreOriginal, contentType, req);
   }
 
   const containerClient = await getContainerClient();
@@ -62,9 +62,9 @@ async function subirEvidencia(respuestaEncuestaId, buffer, nombreOriginal, conte
  * de Evidencias del admin). En producción con Azure real, usar un SAS
  * token con expiración corta en vez de exponer la URL cruda.
  */
-async function obtenerUrlEvidencia(blobPath) {
+async function obtenerUrlEvidencia(blobPath, req) {
   if (!azureConfigurado()) {
-    return urlPublicaLocal(blobPath);
+    return urlPublicaLocal(blobPath, req);
   }
 
   const containerClient = await getContainerClient();

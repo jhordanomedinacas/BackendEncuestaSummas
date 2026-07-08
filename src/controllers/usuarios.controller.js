@@ -172,7 +172,6 @@ async function eliminar(req, res, next) {
 
     // sin vínculos de negocio: limpia los artefactos de autenticación y borra de verdad
     await pool.request().input("UsuarioId", sql.Int, id).query(`DELETE FROM Usuarios2FACodigos WHERE UsuarioId = @UsuarioId`);
-    await pool.request().input("UsuarioId", sql.Int, id).query(`DELETE FROM Usuarios2FA WHERE UsuarioId = @UsuarioId`);
     await pool.request().input("UsuarioId", sql.Int, id).query(`DELETE FROM RecuperacionTokens WHERE UsuarioId = @UsuarioId`);
     await pool.request().input("UsuarioId", sql.Int, id).query(`DELETE FROM AuditLog WHERE UsuarioId = @UsuarioId`);
     await pool.request().input("UsuarioId", sql.Int, id).query(`DELETE FROM Usuarios WHERE UsuarioId = @UsuarioId`);
@@ -192,4 +191,24 @@ async function eliminar(req, res, next) {
   }
 }
 
-module.exports = { listar, crear, actualizar, eliminar };
+/* GET /api/usuarios/encuestadores
+   Lista liviana (solo nombre/correo) de usuarios con rol Encuestador —
+   la usa el Supervisor desde "Encuestas & preguntas" para asignar,
+   sin necesitar acceso a la gestión completa de Usuarios. */
+async function listarEncuestadores(req, res, next) {
+  try {
+    const pool = await getPool();
+    const result = await pool.request().query(`
+      SELECT u.UsuarioId, u.NombreCompleto, u.Correo
+      FROM Usuarios u
+      JOIN Roles r ON r.RolId = u.RolId
+      WHERE r.NombreRol = 'Encuestador' AND u.Estado = 'Activo'
+      ORDER BY u.NombreCompleto
+    `);
+    res.json(result.recordset);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { listar, crear, actualizar, eliminar, listarEncuestadores };

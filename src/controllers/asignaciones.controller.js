@@ -163,16 +163,40 @@ async function finalizar(req, res, next) {
   try {
     const { id } = req.params;
     const pool = await getPool();
+
+    const infoResult = await pool
+      .request()
+      .input("AsignacionId", sql.BigInt, id)
+      .query(`
+        SELECT a.EncuestaId, e.Titulo, u.NombreCompleto, u.Correo
+        FROM Asignaciones a
+        JOIN Encuestas e ON e.EncuestaId = a.EncuestaId
+        JOIN Usuarios u ON u.UsuarioId = a.AsesorId
+        WHERE a.AsignacionId = @AsignacionId
+      `);
+
     await pool
       .request()
       .input("AsignacionId", sql.BigInt, id)
-      .input("AsesorId", sql.Int, req.user.usuarioId)
       .query(`
         UPDATE Asignaciones
         SET Estado = 'Finalizada', FechaFin = SYSUTCDATETIME()
-        WHERE AsignacionId = @AsignacionId AND AsesorId = @AsesorId AND Estado IN ('Pendiente','EnCurso')
+        WHERE AsignacionId = @AsignacionId AND Estado IN ('Pendiente','EnCurso')
       `);
+
     res.json({ ok: true });
+
+    const info = infoResult.recordset[0];
+    if (info) {
+      registrarActividad(pool, {
+        usuarioId: req.user.usuarioId,
+        accion: "CERRAR_ASIGNACION",
+        entidad: "Asignaciones",
+        entidadId: id,
+        detalle: `Cerró la encuesta "${info.Titulo}" para el encuestador "${info.NombreCompleto}" (${info.Correo})`,
+        req,
+      });
+    }
   } catch (err) {
     next(err);
   }
@@ -203,4 +227,50 @@ async function pendientesGlobal(req, res, next) {
   }
 }
 
-module.exports = { asignarMasivo, misEncuestas, iniciar, obtenerPorUsuario, eliminar, finalizar, pendientesGlobal };
+/* GET /api/asignaciones/encuestadores
+   Lista liviana de usuarios con rol Encuestador (nombre + correo)
+   para el checklist de asignación dentro del constructor de encuestas. */
+async function listarEncuestadores(req, res, next) {
+  try {
+    const pool = await getPool();
+    const result = await pool.request().query(`
+      SELECT u.UsuarioId, u.NombreCompleto, u.Correo
+      FROM Usuarios u
+      JOIN Roles r ON r.RolId = u.RolId
+      WHERE r.NombreRol = 'Encuestador' AND u.Estado = 'Activo'
+      ORDER BY u.NombreCompleto
+    `);
+    res.json(result.recordset);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/* GET /api/asignaciones/encuesta/:encuestaId
+   Qué encuestadores ya tienen asignada esta encuesta — para
+   pre-marcar el checklist al editarla. */
+async function obtenerPorEncuesta(req, res, next) {
+  try {
+    const { encuestaId } = req.params;
+    const pool = await getPool();
+    const result = await pool
+      .request()
+      .input("EncuestaId", sql.VarChar(20), encuestaId)
+      .query(`SELECT AsignacionId, AsesorId, Estado FROM Asignaciones WHERE EncuestaId = @EncuestaId`);
+    res.json(result.recordset);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = {
+  asignarMasivo,
+  misEncuestas,
+  iniciar,
+  obtenerPorUsuario,
+  obtenerPorEncuesta,
+  listarEncuestadores,
+  eliminar,
+  finalizar,
+  pendientesGlobal,
+};

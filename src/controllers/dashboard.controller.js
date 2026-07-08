@@ -32,17 +32,6 @@ async function resumen(req, res, next) {
   }
 }
 
-/* GET /api/dashboard/avance-campanias — usa la vista vw_AvanceCampanias */
-async function avanceCampanias(req, res, next) {
-  try {
-    const pool = await getPool();
-    const result = await pool.request().query(`SELECT * FROM vw_AvanceCampanias ORDER BY Campania, Asesor`);
-    res.json(result.recordset);
-  } catch (err) {
-    next(err);
-  }
-}
-
 /* GET /api/dashboard/respuestas-por-dia?dias=7|30&campaniaId=X
    Real, no depende de que la encuesta tenga campaña asignada. */
 async function respuestasPorDia(req, res, next) {
@@ -210,4 +199,4 @@ async function rankingEncuestadores(req, res, next) {
   }
 }
 
-module.exports = { resumen, avanceCampanias, respuestasPorDia, campaniasResumen, rankingEncuestadores };
+module.exports = { resumen, respuestasPorDia, campaniasResumen, rankingEncuestadores };

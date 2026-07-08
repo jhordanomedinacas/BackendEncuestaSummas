@@ -11,7 +11,7 @@ function asegurarCarpeta(dir) {
  * Guarda el archivo en disco, organizado por carpeta = ID de la respuesta
  * (mismo criterio de "etiquetado" que usaríamos en Azure).
  */
-async function subirEvidenciaLocal(respuestaEncuestaId, buffer, nombreOriginal, contentType) {
+async function subirEvidenciaLocal(respuestaEncuestaId, buffer, nombreOriginal, contentType, req) {
   const carpeta = path.join(UPLOADS_DIR, respuestaEncuestaId);
   asegurarCarpeta(carpeta);
 
@@ -23,11 +23,24 @@ async function subirEvidenciaLocal(respuestaEncuestaId, buffer, nombreOriginal, 
 
   // blobPath guarda la ruta relativa — la misma "forma" que usaríamos con Azure
   const blobPath = `${respuestaEncuestaId}/${nombreArchivo}`;
-  return { blobPath, url: urlPublicaLocal(blobPath) };
+  return { blobPath, url: urlPublicaLocal(blobPath, req) };
 }
 
-function urlPublicaLocal(blobPath) {
-  const base = process.env.PUBLIC_BACKEND_URL || `http://localhost:${process.env.PORT || 4000}`;
+/**
+ * Arma la URL pública del archivo. Si PUBLIC_BACKEND_URL está seteada
+ * (recomendado en producción), se usa esa. Si no, y se pasó el `req`
+ * de la petición actual, se auto-detecta del propio host (funciona
+ * "solo" en Azure App Service sin tener que configurar nada a mano).
+ * Como último recurso, cae a localhost (solo tiene sentido en desarrollo).
+ */
+function urlPublicaLocal(blobPath, req) {
+  let base = process.env.PUBLIC_BACKEND_URL;
+  if (!base && req) {
+    base = `${req.protocol}://${req.get("host")}`;
+  }
+  if (!base) {
+    base = `http://localhost:${process.env.PORT || 4000}`;
+  }
   return `${base}/uploads/evidencias/${blobPath}`;
 }
 

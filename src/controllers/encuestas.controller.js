@@ -174,11 +174,12 @@ async function guardar(req, res, next) {
         .input("TituloPregunta", sql.NVarChar(400), p.title || "")
         .input("Obligatoria", sql.Bit, !!p.required)
         .input("Aleatorizar", sql.Bit, !!p.randomize)
+        .input("RequiereEvidencia", sql.Bit, !!p.requiereEvidencia)
         .input("ConfiguracionJSON", sql.NVarChar(sql.MAX), configuracionJSON)
         .query(`
-          INSERT INTO Preguntas (EncuestaId, Orden, Tipo, TituloPregunta, Obligatoria, Aleatorizar, ConfiguracionJSON)
+          INSERT INTO Preguntas (EncuestaId, Orden, Tipo, TituloPregunta, Obligatoria, Aleatorizar, RequiereEvidencia, ConfiguracionJSON)
           OUTPUT INSERTED.PreguntaId
-          VALUES (@EncuestaId, @Orden, @Tipo, @TituloPregunta, @Obligatoria, @Aleatorizar, @ConfiguracionJSON)
+          VALUES (@EncuestaId, @Orden, @Tipo, @TituloPregunta, @Obligatoria, @Aleatorizar, @RequiereEvidencia, @ConfiguracionJSON)
         `);
 
       const preguntaId = insertPregunta.recordset[0].PreguntaId;

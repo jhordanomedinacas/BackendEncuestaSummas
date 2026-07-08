@@ -118,7 +118,7 @@ async function registrar(req, res, next) {
 
     // ---- Subir el audio de control, etiquetado con el ID de la respuesta ----
     if (audioFile) {
-      const { blobPath } = await subirEvidencia(respuestaEncuestaId, audioFile.buffer, audioFile.originalname, audioFile.mimetype);
+      const { blobPath } = await subirEvidencia(respuestaEncuestaId, audioFile.buffer, audioFile.originalname, audioFile.mimetype, req);
 
       await pool
         .request()
@@ -138,7 +138,7 @@ async function registrar(req, res, next) {
       const archivo = archivosFiles[i];
       const preguntaId = archivoPreguntaIds[i] ?? null;
 
-      const { blobPath } = await subirEvidencia(respuestaEncuestaId, archivo.buffer, archivo.originalname, archivo.mimetype);
+      const { blobPath } = await subirEvidencia(respuestaEncuestaId, archivo.buffer, archivo.originalname, archivo.mimetype, req);
 
       await pool
         .request()
