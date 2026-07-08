@@ -295,9 +295,10 @@ async function misEstadisticas(req, res, next) {
         .input("AsesorId", sql.Int, asesorId)
         .query(`
           SELECT
-            COUNT(*) AS TotalAsignadas,
-            SUM(CASE WHEN EXISTS (SELECT 1 FROM RespuestasEncuesta r WHERE r.AsignacionId = a.AsignacionId) THEN 1 ELSE 0 END) AS ConRespuesta
+            COUNT(DISTINCT a.AsignacionId) AS TotalAsignadas,
+            COUNT(DISTINCT r.AsignacionId) AS ConRespuesta
           FROM Asignaciones a
+          LEFT JOIN RespuestasEncuesta r ON r.AsignacionId = a.AsignacionId
           WHERE a.AsesorId = @AsesorId
         `),
     ]);
